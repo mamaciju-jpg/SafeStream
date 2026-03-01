@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeStream - Windows</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { 
+            color: #e94560; 
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .subtitle { 
+            text-align: center; 
+            color: #888; 
+            margin-bottom: 30px;
+        }
+        .card { 
+            background: rgba(255,255,255,0.1); 
+            backdrop-filter: blur(10px);
+            padding: 25px; 
+            border-radius: 15px; 
+            margin: 20px 0;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .status-bar {
+            background: linear-gradient(90deg, #4ecca3, #3db892);
+            color: #1a1a2e;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        input { 
+            width: 100%; 
+            padding: 12px; 
+            margin: 8px 0; 
+            border-radius: 8px; 
+            border: none; 
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 16px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        input:focus {
+            outline: none;
+            border-color: #e94560;
+        }
+        button { 
+            background: linear-gradient(135deg, #e94560, #c73e54); 
+            color: white; 
+            border: none; 
+            padding: 15px 30px; 
+            border-radius: 8px; 
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+        button:hover { transform: translateY(-2px); }
+        button:active { transform: scale(0.98); }
+        .btn-green { 
+            background: linear-gradient(135deg, #4ecca3, #3db892);
+            width: 100%;
+            margin-top: 10px;
+        }
+        .btn-blue { 
+            background: linear-gradient(135deg, #3498db, #2980b9);
+        }
+        .camera-item {
+            background: rgba(0,0,0,0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid #e94560;
+        }
+        .camera-name { font-size: 1.2em; font-weight: bold; margin-bottom: 5px; }
+        .camera-ip { color: #888; font-size: 0.9em; }
+        .btn-record { 
+            background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+            margin-top: 10px;
+        }
+        .recording { 
+            animation: pulse 1.5s infinite;
+            background: linear-gradient(135deg, #ff4444, #cc0000) !important;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .video-item {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 SafeStream</h1>
+        <p class="subtitle">Sistema de Câmeras Proprio - Windows</p>
+        
+        <div class="card">
+            <div class="status-bar" id="status">⏳ Iniciando...</div>
+        </div>
+
+        <!-- ADICIONAR CAMERA -->
+        <div class="card" id="addCard">
+            <h2>➕ Adicionar Camera Yoosee</h2>
+            <input type="text" id="camName" placeholder="Nome (ex: Camera da Frente)" value="Minha Camera">
+            <input type="text" id="camIP" placeholder="IP: 192.168.1.105">
+            <input type="text" id="camUser" placeholder="Usuario" value="admin">
+            <input type="password" id="camPass" placeholder="Senha">
+            <button class="btn-green" onclick="addCamera()">ADICIONAR CAMERA</button>
+        </div>
+
+        <!-- CAMERAS -->
+        <div class="card">
+            <h2>📹 Cameras Configuradas</h2>
+            <div id="camerasList">
+                <p style="color: #888; text-align: center;">Nenhuma camera configurada</p>
+            </div>
+        </div>
+
+        <!-- GRAVACOES -->
+        <div class="card">
+            <h2>🎬 Gravacoes</h2>
+            <div id="recordingsList">
+                <p style="color: #888; text-align: center;">Nenhuma gravacao ainda</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://localhost:3000/api';
+        
+        // Status
+        fetch(`${API}/status`)
+            .then(r => r.json())
+            .then(d => {
+                document.getElementById('status').innerHTML = 
+                    `✅ ONLINE | Gravacoes: ${d.recordings} | ${new Date(d.timestamp).toLocaleTimeString()}`;
+            })
+            .catch(() => {
+                document.getElementById('status').innerHTML = '❌ OFFLINE - Verifique se o servidor esta rodando';
+                document.getElementById('status').style.background = 'linear-gradient(90deg, #ff6b6b, #ee5a5a)';
+                document.getElementById('status').style.color = 'white';
+            });
+
+        function loadCameras() {
+            fetch(`${API}/cameras`)
+                .then(r => r.json())
+                .then(data => {
+                    const div = document.getElementById('camerasList');
+                    if (!data.length) {
+                        div.innerHTML = '<p style="color: #888; text-align: center;">Clique em ADICIONAR CAMERA acima</p>';
+                        return;
+                    }
+                    div.innerHTML = data.map(c => `
+                        <div class="camera-item">
+                            <div>
+                                <div class="camera-name">📹 ${c.name}</div>
+                                <div class="camera-ip">🌐 ${c.ip_address}</div>
+                                <div style="font-size: 0.8em; color: #666; margin-top: 5px;">${c.rtsp_url}</div>
+                            </div>
+                            <button class="btn-record" id="btn-${c.id}" onclick="record(${c.id})">
+                                ⏺ GRAVAR 10s
+                            </button>
+                        </div>
+                    `).join('');
+                });
+        }
+        loadCameras();
+
+        function loadRecordings() {
+            fetch(`${API}/recordings`)
+                .then(r => r.json())
+                .then(data => {
+                    const div = document.getElementById('recordingsList');
+                    if (!data.length) return;
+                    div.innerHTML = data.slice(-5).reverse().map(r => `
+                        <div class="video-item">
+                            <div>
+                                <div style="font-weight: bold;">${r.camera_name}</div>
+                                <div style="font-size: 0.85em; color: #888;">
+                                    ${(r.size/1024/1024).toFixed(1)} MB | ${r.duration}s | 
+                                    ${new Date(r.created_at).toLocaleString()}
+                                </div>
+                            </div>
+                            <button class="btn-blue" onclick="download('${r.filename}')">
+                                ⬇️ Download
+                            </button>
+                        </div>
+                    `).join('');
+                });
+        }
+        loadRecordings();
+
+        function addCamera() {
+            const name = document.getElementById('camName').value;
+            const ip = document.getElementById('camIP').value;
+            const user = document.getElementById('camUser').value || 'admin';
+            const pass = document.getElementById('camPass').value || '123';
+            
+            if (!ip) {
+                alert('❌ Digite o IP da camera!');
+                return;
+            }
+
+            const rtsp = `rtsp://${user}:${pass}@${ip}:554/onvif1`;
+            
+            fetch(`${API}/cameras`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name, rtsp_url: rtsp, ip_address: ip })
+            })
+            .then(r => r.json())
+            .then(d => {
+                alert('✅ ' + d.message);
+                loadCameras();
+                document.getElementById('camIP').value = '';
+            })
+            .catch(err => alert('❌ Erro: ' + err));
+        }
+
+        function record(id) {
+            const btn = document.getElementById(`btn-${id}`);
+            btn.classList.add('recording');
+            btn.innerHTML = '⏹ GRAVANDO...';
+            btn.disabled = true;
+
+            fetch(`${API}/record/${id}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ duration: 10 })
+            })
+            .then(r => r.json())
+            .then(d => {
+                alert('✅ ' + d.message + '\n📁 Arquivo: ' + d.size);
+                btn.classList.remove('recording');
+                btn.innerHTML = '⏺ GRAVAR 10s';
+                btn.disabled = false;
+                loadRecordings();
+            })
+            .catch(err => {
+                alert('❌ Erro na gravacao: ' + err);
+                btn.classList.remove('recording');
+                btn.innerHTML = '⏺ GRAVAR 10s';
+                btn.disabled = false;
+            });
+        }
+
+        function download(filename) {
+            window.open(`http://localhost:3000/api/download/${filename}`, '_blank');
+        }
+    </script>
+</body>
+</html>
